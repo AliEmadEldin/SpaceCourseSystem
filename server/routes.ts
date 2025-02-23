@@ -99,21 +99,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Protected routes
-  app.get("/api/courses", authenticate, async (_req, res) => {
-    const courses = await storage.listCourses();
-    res.json(courses);
-  });
-
-  app.get("/api/courses/:id", authenticate, async (req, res) => {
-    const course = await storage.getCourse(Number(req.params.id));
-    if (!course) {
-      return res.status(404).json({ message: "Course not found" });
+  // Course Management Routes
+  // List courses with search and filters
+  app.get("/api/courses", authenticate, async (req, res) => {
+    try {
+      const { title, minPrice, maxPrice } = req.query;
+      const filters = {
+        ...(title && { title: String(title) }),
+        ...(minPrice && { minPrice: Number(minPrice) }),
+        ...(maxPrice && { maxPrice: Number(maxPrice) })
+      };
+      const courses = await storage.listCourses(filters);
+      res.json(courses);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch courses" });
     }
-    res.json(course);
   });
 
-  // Only authenticated users can enroll
+  // Get single course
+  app.get("/api/courses/:id", authenticate, async (req, res) => {
+    try {
+      const course = await storage.getCourse(Number(req.params.id));
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+      res.json(course);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch course" });
+    }
+  });
+
+  // Create course (Instructor only)
+  app.post("/api/courses", authenticate, requireRole("instructor"), async (req, res) => {
+    try {
+      const parsed = insertCourseSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid course data" });
+      }
+
+      const course = await storage.createCourse(parsed.data);
+      res.status(201).json(course);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create course" });
+    }
+  });
+
+  // Update course (Instructor only)
+  app.put("/api/courses/:id", authenticate, requireRole("instructor"), async (req, res) => {
+    try {
+      const parsed = insertCourseSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid course data" });
+      }
+
+      const course = await storage.updateCourse(Number(req.params.id), parsed.data);
+      res.json(course);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update course" });
+    }
+  });
+
+  // Delete course (Instructor only)
+  app.delete("/api/courses/:id", authenticate, requireRole("instructor"), async (req, res) => {
+    try {
+      await storage.deleteCourse(Number(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete course" });
+    }
+  });
+
+  // Enroll in course (Any authenticated user)
   app.post("/api/courses/:id/enroll", authenticate, async (req, res) => {
     try {
       const course = await storage.enrollCourse(Number(req.params.id));
@@ -121,16 +177,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       res.status(404).json({ message: "Course not found" });
     }
-  });
-
-  // Only admins can create courses
-  app.post("/api/courses", authenticate, requireRole("admin"), async (req, res) => {
-    const parsed = insertCourseSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: "Invalid course data" });
-    }
-    const course = await storage.createCourse(parsed.data);
-    res.status(201).json(course);
   });
 
   const httpServer = createServer(app);
