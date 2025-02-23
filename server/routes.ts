@@ -169,13 +169,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enroll in course (Any authenticated user)
-  app.post("/api/courses/:id/enroll", authenticate, async (req, res) => {
+  // Enrollment Management Routes
+  // List enrolled courses for the authenticated user
+  app.get("/api/enrollments/my-courses", authenticate, async (req, res) => {
     try {
-      const course = await storage.enrollCourse(Number(req.params.id));
-      res.json(course);
+      const courses = await storage.listEnrolledCourses(req.user!.id);
+      res.json(courses);
     } catch (error) {
-      res.status(404).json({ message: "Course not found" });
+      res.status(500).json({ message: "Failed to fetch enrolled courses" });
+    }
+  });
+
+  // Enroll in course (Any authenticated user)
+  app.post("/api/enrollments", authenticate, async (req, res) => {
+    try {
+      const { courseId } = req.body;
+      if (!courseId) {
+        return res.status(400).json({ message: "Course ID is required" });
+      }
+
+      const enrollment = await storage.enrollUserInCourse(req.user!.id, Number(courseId));
+      res.status(201).json(enrollment);
+    } catch (error) {
+      if (error instanceof Error && error.message === "User is already enrolled in this course") {
+        return res.status(400).json({ message: error.message });
+      }
+      res.status(500).json({ message: "Failed to enroll in course" });
     }
   });
 

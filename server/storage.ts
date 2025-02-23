@@ -1,4 +1,4 @@
-import { courses, users, type Course, type InsertCourse, type User, type InsertUser } from "@shared/schema";
+import { courses, users, enrollments, type Course, type InsertCourse, type User, type InsertUser, type Enrollment, type InsertEnrollment } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, lte, gte, and, or } from "drizzle-orm";
 
@@ -19,7 +19,11 @@ export interface IStorage {
   createCourse(course: InsertCourse): Promise<Course>;
   updateCourse(id: number, course: Partial<InsertCourse>): Promise<Course>;
   deleteCourse(id: number): Promise<void>;
-  enrollCourse(id: number): Promise<Course>;
+
+  // Enrollment management
+  listEnrolledCourses(userId: number): Promise<Course[]>;
+  enrollUserInCourse(userId: number, courseId: number): Promise<Enrollment>;
+  isUserEnrolled(userId: number, courseId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -111,18 +115,62 @@ export class DatabaseStorage implements IStorage {
     await db.delete(courses).where(eq(courses.id, id));
   }
 
-  async enrollCourse(id: number): Promise<Course> {
-    const [updatedCourse] = await db
-      .update(courses)
-      .set({ enrolled: true })
-      .where(eq(courses.id, id))
-      .returning();
+  // New enrollment management methods
+  async listEnrolledCourses(userId: number): Promise<Course[]> {
+    const enrolledCourses = await db
+      .select({
+        id: courses.id,
+        title: courses.title,
+        description: courses.description,
+        imageUrl: courses.imageUrl,
+        duration: courses.duration,
+        difficulty: courses.difficulty,
+        enrolled: courses.enrolled,
+        instructorId: courses.instructorId,
+        price: courses.price
+      })
+      .from(enrollments)
+      .innerJoin(courses, eq(enrollments.courseId, courses.id))
+      .where(eq(enrollments.userId, userId));
 
-    if (!updatedCourse) {
+    return enrolledCourses;
+  }
+
+  async isUserEnrolled(userId: number, courseId: number): Promise<boolean> {
+    const [enrollment] = await db
+      .select()
+      .from(enrollments)
+      .where(and(
+        eq(enrollments.userId, userId),
+        eq(enrollments.courseId, courseId)
+      ));
+
+    return !!enrollment;
+  }
+
+  async enrollUserInCourse(userId: number, courseId: number): Promise<Enrollment> {
+    // Check if already enrolled
+    const isEnrolled = await this.isUserEnrolled(userId, courseId);
+    if (isEnrolled) {
+      throw new Error("User is already enrolled in this course");
+    }
+
+    // Verify course exists
+    const course = await this.getCourse(courseId);
+    if (!course) {
       throw new Error("Course not found");
     }
 
-    return updatedCourse;
+    // Create enrollment
+    const [enrollment] = await db
+      .insert(enrollments)
+      .values({
+        userId,
+        courseId
+      })
+      .returning();
+
+    return enrollment;
   }
 }
 
