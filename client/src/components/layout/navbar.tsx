@@ -11,22 +11,22 @@ export function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <Link href="/">
-              <a className="flex items-center">
+              <span className="flex items-center cursor-pointer">
                 <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   SpaceCourse
                 </span>
-              </a>
+              </span>
             </Link>
           </div>
           <div className="flex items-center space-x-4">
             <Link href="/">
-              <a className="text-foreground/80 hover:text-foreground">Home</a>
+              <span className="text-foreground/80 hover:text-foreground cursor-pointer">Home</span>
             </Link>
             {isAuthenticated ? (
               <>
                 {isAdmin && (
                   <Link href="/admin">
-                    <a className="text-foreground/80 hover:text-foreground">Admin</a>
+                    <span className="text-foreground/80 hover:text-foreground cursor-pointer">Admin</span>
                   </Link>
                 )}
                 <Button 

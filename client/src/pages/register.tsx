@@ -5,12 +5,14 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 
 export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("student");
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const [, setLocation] = useLocation();
@@ -20,7 +22,7 @@ export default function Register() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await register(email, password);
+      await register(email, password, role);
       setLocation("/");
       toast({
         title: "Welcome!",
@@ -41,7 +43,10 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <h1 className="text-2xl font-bold text-center">Register</h1>
+          <h1 className="text-2xl font-bold text-center">Create Account</h1>
+          <p className="text-sm text-center text-muted-foreground">
+            Join SpaceCourse to start your learning journey
+          </p>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -65,6 +70,18 @@ export default function Register() {
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={role} onValueChange={setRole}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Student</SelectItem>
+                  <SelectItem value="instructor">Instructor</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button 
@@ -77,7 +94,7 @@ export default function Register() {
             <p className="text-sm text-center text-muted-foreground">
               Already have an account?{" "}
               <Link href="/login">
-                <a className="text-primary hover:underline">Login</a>
+                <span className="text-primary hover:underline cursor-pointer">Login</span>
               </Link>
             </p>
           </CardFooter>

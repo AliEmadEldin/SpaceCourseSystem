@@ -41,7 +41,10 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-muted/50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <h1 className="text-2xl font-bold text-center">Login</h1>
+          <h1 className="text-2xl font-bold text-center">Welcome Back</h1>
+          <p className="text-sm text-center text-muted-foreground">
+            Sign in to continue your learning journey
+          </p>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
@@ -69,15 +72,15 @@ export default function Login() {
           <CardFooter className="flex flex-col gap-4">
             <Button 
               type="submit" 
-              className="w-full" 
+              className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? "Signing in..." : "Login"}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
               Don't have an account?{" "}
               <Link href="/register">
-                <a className="text-primary hover:underline">Register</a>
+                <span className="text-primary hover:underline cursor-pointer">Register</span>
               </Link>
             </p>
           </CardFooter>
