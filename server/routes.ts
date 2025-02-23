@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertCourseSchema } from "@shared/schema";
+import { insertCourseSchema, insertUserSchema } from "@shared/schema";
 import { authenticate, requireRole } from "./middleware/auth";
 import { createUser, findUserByEmail, comparePasswords, generateToken, seedAdminUser } from "./services/auth";
 
@@ -40,6 +40,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ token });
     } catch (error) {
       res.status(500).json({ message: "Login failed" });
+    }
+  });
+
+  // User Management Routes (Protected)
+  const isAdminOrSuperAdmin = (req: any, res: any, next: any) => {
+    if (req.user?.role !== "admin" && req.user?.role !== "superadmin") {
+      return res.status(403).json({ message: "Access denied. Admin privileges required." });
+    }
+    next();
+  };
+
+  // List users (Admin only)
+  app.get("/api/users", authenticate, isAdminOrSuperAdmin, async (_req, res) => {
+    try {
+      const users = await storage.listUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Get single user (Admin only)
+  app.get("/api/users/:id", authenticate, isAdminOrSuperAdmin, async (req, res) => {
+    try {
+      const user = await storage.getUser(Number(req.params.id));
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Update user (Admin only)
+  app.put("/api/users/:id", authenticate, isAdminOrSuperAdmin, async (req, res) => {
+    try {
+      const parsed = insertUserSchema.partial().safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid user data" });
+      }
+
+      const user = await storage.updateUser(Number(req.params.id), parsed.data);
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  // Delete user (Admin only)
+  app.delete("/api/users/:id", authenticate, isAdminOrSuperAdmin, async (req, res) => {
+    try {
+      await storage.deleteUser(Number(req.params.id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 
