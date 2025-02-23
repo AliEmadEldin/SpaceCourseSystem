@@ -1,6 +1,10 @@
 import { Link } from "wouter";
+import { useAuth } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 
 export function Navbar() {
+  const { isAuthenticated, isAdmin, logout } = useAuth();
+
   return (
     <nav className="bg-background border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -18,6 +22,33 @@ export function Navbar() {
             <Link href="/">
               <a className="text-foreground/80 hover:text-foreground">Home</a>
             </Link>
+            {isAuthenticated ? (
+              <>
+                {isAdmin && (
+                  <Link href="/admin">
+                    <a className="text-foreground/80 hover:text-foreground">Admin</a>
+                  </Link>
+                )}
+                <Button 
+                  variant="ghost" 
+                  onClick={() => {
+                    logout();
+                    window.location.href = "/";
+                  }}
+                >
+                  Logout
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/login">
+                  <Button variant="ghost">Login</Button>
+                </Link>
+                <Link href="/register">
+                  <Button>Register</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
