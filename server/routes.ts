@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { insertCourseSchema, insertUserSchema } from "@shared/schema";
 import { authenticate, requireRole } from "./middleware/auth";
 import { createUser, findUserByEmail, comparePasswords, generateToken, seedAdminUser } from "./services/auth";
+import {insertLiveSessionSchema} from "@shared/schema"; //Import the schema
+
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed admin user on startup
@@ -195,6 +197,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: error.message });
       }
       res.status(500).json({ message: "Failed to enroll in course" });
+    }
+  });
+
+  // Live Session Management Routes
+  // Create live session (Instructor only)
+  app.post("/api/live-sessions", authenticate, requireRole("instructor"), async (req, res) => {
+    try {
+      const parsed = insertLiveSessionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid session data" });
+      }
+
+      // Verify the course exists
+      const course = await storage.getCourse(parsed.data.courseId);
+      if (!course) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+
+      // Create the live session
+      const session = await storage.createLiveSession(parsed.data);
+      res.status(201).json(session);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create live session" });
+    }
+  });
+
+  // Get session details
+  app.get("/api/live-sessions/:id", authenticate, async (req, res) => {
+    try {
+      const session = await storage.getLiveSession(Number(req.params.id));
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch session" });
+    }
+  });
+
+  // List sessions for a course
+  app.get("/api/live-sessions", authenticate, async (req, res) => {
+    try {
+      const { courseId } = req.query;
+      if (!courseId) {
+        return res.status(400).json({ message: "Course ID is required" });
+      }
+
+      const sessions = await storage.listLiveSessions(Number(courseId));
+      res.json(sessions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch sessions" });
     }
   });
 

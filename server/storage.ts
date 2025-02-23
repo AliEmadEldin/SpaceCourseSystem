@@ -1,4 +1,4 @@
-import { courses, users, enrollments, type Course, type InsertCourse, type User, type InsertUser, type Enrollment, type InsertEnrollment } from "@shared/schema";
+import { courses, users, enrollments, liveSessions, type Course, type InsertCourse, type User, type InsertUser, type Enrollment, type InsertEnrollment, type LiveSession, type InsertLiveSession } from "@shared/schema";
 import { db } from "./db";
 import { eq, like, lte, gte, and, or } from "drizzle-orm";
 
@@ -24,6 +24,11 @@ export interface IStorage {
   listEnrolledCourses(userId: number): Promise<Course[]>;
   enrollUserInCourse(userId: number, courseId: number): Promise<Enrollment>;
   isUserEnrolled(userId: number, courseId: number): Promise<boolean>;
+
+  // Live session management
+  createLiveSession(session: InsertLiveSession): Promise<LiveSession>;
+  getLiveSession(id: number): Promise<LiveSession | undefined>;
+  listLiveSessions(courseId: number): Promise<LiveSession[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -171,6 +176,31 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return enrollment;
+  }
+
+  // Live session management methods
+  async createLiveSession(session: InsertLiveSession): Promise<LiveSession> {
+    const [newSession] = await db
+      .insert(liveSessions)
+      .values(session)
+      .returning();
+    return newSession;
+  }
+
+  async getLiveSession(id: number): Promise<LiveSession | undefined> {
+    const [session] = await db
+      .select()
+      .from(liveSessions)
+      .where(eq(liveSessions.id, id));
+    return session;
+  }
+
+  async listLiveSessions(courseId: number): Promise<LiveSession[]> {
+    return await db
+      .select()
+      .from(liveSessions)
+      .where(eq(liveSessions.courseId, courseId))
+      .orderBy(liveSessions.startTime);
   }
 }
 
