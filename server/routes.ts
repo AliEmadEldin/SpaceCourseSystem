@@ -1,11 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import multer from "multer";
 import { storage } from "./storage";
-import { insertCourseSchema, insertUserSchema } from "@shared/schema";
+import { insertCourseSchema, insertUserSchema, insertContentSchema } from "@shared/schema";
 import { authenticate, requireRole } from "./middleware/auth";
 import { createUser, findUserByEmail, comparePasswords, generateToken, seedAdminUser } from "./services/auth";
-import {insertLiveSessionSchema} from "@shared/schema"; //Import the schema
+import { uploadToS3 } from "./services/s3";
 
+// Configure multer for memory storage
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 100 * 1024 * 1024 // 100MB limit
+  }
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Seed admin user on startup
@@ -248,6 +256,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(sessions);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch sessions" });
+    }
+  });
+
+  // File upload endpoint (Instructor only)
+  app.post(
+    "/api/upload/:courseId",
+    authenticate,
+    requireRole("instructor"),
+    upload.single("file"),
+    async (req, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No file uploaded" });
+        }
+
+        const courseId = Number(req.params.courseId);
+
+        // Verify course exists
+        const course = await storage.getCourse(courseId);
+        if (!course) {
+          return res.status(404).json({ message: "Course not found" });
+        }
+
+        // Upload to S3
+        const fileUrl = await uploadToS3(req.file, courseId);
+
+        // Add content record
+        const content = await storage.addContent({
+          courseId,
+          type: req.file.mimetype,
+          url: fileUrl
+        });
+
+        res.status(201).json(content);
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message === "Invalid file type" || error.message === "File too large") {
+            return res.status(400).json({ message: error.message });
+          }
+        }
+        res.status(500).json({ message: "Failed to upload file" });
+      }
+    }
+  );
+
+  // List course content
+  app.get("/api/courses/:courseId/content", authenticate, async (req, res) => {
+    try {
+      const courseId = Number(req.params.courseId);
+      const content = await storage.listCourseContent(courseId);
+      res.json(content);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch course content" });
     }
   });
 
